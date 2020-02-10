@@ -1,3 +1,7 @@
+/**
+ * How to upload code to ATtiny
+ * https://makbit.com/web/firmware/breathing-life-into-digispark-clone-with-attiny-mcu/
+ */
 #include <Arduino.h>
 
 /**
@@ -13,20 +17,26 @@
  * \endcode
  */
 namespace McuPins {
-    constexpr uint8_t Reset = 5;                // PB5 / PCINT5 / ^RESET / ADC0 / dW
-    constexpr uint8_t ValveSwitch = 3;          // PB3 / PCINT3 / XTAL1 / CLKI / ^OC1B / ADC3
-    constexpr uint8_t AlarmLed = 4;             // PB4 / PCINT4 / XTAL2 / CLKO /  OC1B / ADC2
-    constexpr uint8_t AlarmBuzzer = 0;          // PB0 / MOSI / DI / SDA / AIN0 / OC0A / ^OC1A / AREF / PCINT0
-    constexpr uint8_t HighLevelSensor = 1;      // PB1 / MISO / DO / AIN1 / OC0B / OC1A / PCINT1
-    constexpr uint8_t NormalLevelSensor = 2;    // PB2 / SCK / USCK / SCL / ADC1 / T0 / INT0 / PCINT2
+    const uint8_t Reset = 5;                // PB5 / PCINT5 / ^RESET / ADC0 / dW
+    const uint8_t ValveSwitch = 3;          // PB3 / PCINT3 / XTAL1 / CLKI / ^OC1B / ADC3
+    const uint8_t AlarmLed = 4;             // PB4 / PCINT4 / XTAL2 / CLKO /  OC1B / ADC2
+    const uint8_t AlarmBuzzer = 0;          // PB0 / MOSI / DI / SDA / AIN0 / OC0A / ^OC1A / AREF / PCINT0
+    const uint8_t HighLevelSensor = 1;      // PB1 / MISO / DO / AIN1 / OC0B / OC1A / PCINT1
+    const uint8_t NormalLevelSensor = 2;    // PB2 / SCK / USCK / SCL / ADC1 / T0 / INT0 / PCINT2
 }
 
 class Switchable {
 private:
     const uint8_t mcuPin;
+    const uint32_t delayMs;
     bool isOn = false;
 public:
-    explicit Switchable(const uint8_t mcuPin) : mcuPin(mcuPin) {
+    explicit Switchable(const uint8_t mcuPin) : mcuPin(mcuPin), delayMs(0) {
+        pinMode(Switchable::mcuPin, OUTPUT);
+        digitalWrite(Switchable::mcuPin, LOW);
+    }
+
+    explicit Switchable(const uint8_t mcuPin, const uint32_t delayMs) : mcuPin(mcuPin), delayMs(delayMs) {
         pinMode(Switchable::mcuPin, OUTPUT);
         digitalWrite(Switchable::mcuPin, LOW);
     }
@@ -34,14 +44,20 @@ public:
     virtual ~Switchable() = default;
 
     void setOn() {
-        if (!isOn) {
+        if (!(Switchable::isOn)) {
+            if (delayMs > 0) {
+                delay(delayMs);
+            }
             Switchable::isOn = true;
             digitalWrite(Switchable::mcuPin, HIGH);
         }
     }
 
     void setOff() {
-        if (isOn) {
+        if (Switchable::isOn) {
+            if (delayMs > 0) {
+                delay(delayMs);
+            }
             Switchable::isOn = false;
             digitalWrite(Switchable::mcuPin, LOW);
         }
@@ -97,11 +113,15 @@ public:
     }
 };
 
-Switchable valveSwitch{McuPins::ValveSwitch};
-Switchable alarmLed{McuPins::AlarmLed};
+const uint32_t valveDelayMs = 3 * 60 * 1000; // minutes * seconds * milliseconds
+Switchable valveSwitch = Switchable(McuPins::ValveSwitch, valveDelayMs);
 
-constexpr uint32_t buzzIntervalDurations[6] = {700, 400, 700, 400, 1400, 4000}; // beep, pause, beep, pause, ...
-Buzzer<(sizeof(buzzIntervalDurations) / sizeof(*buzzIntervalDurations))> alarmBuzzer{McuPins::AlarmBuzzer, buzzIntervalDurations};
+/* todo: investigate why the led cannot be used for alarm signalling, it breaks the whole logic */
+Switchable redLed = Switchable(McuPins::AlarmLed); // this should have been an alarm led but the code does not work when it's used as one :(
+
+const uint8_t buzzIntervals = 6;
+const uint32_t buzzIntervalDurations[buzzIntervals] = {600, 400, 600, 400, 1200, 4000}; // beep, pause, beep, pause, ...
+Buzzer<buzzIntervals> alarmBuzzer = Buzzer<buzzIntervals>(McuPins::AlarmBuzzer, buzzIntervalDurations);
 
 void setup() {
     pinMode(McuPins::NormalLevelSensor, INPUT_PULLUP);
@@ -110,17 +130,19 @@ void setup() {
 
 void loop() {
     if (digitalRead(McuPins::HighLevelSensor) == LOW) {
-        alarmLed.setOff();
+        redLed.setOff();
         alarmBuzzer.setOff();
 
         if (digitalRead(McuPins::NormalLevelSensor) == LOW) {
             valveSwitch.setOn();
+            redLed.setOn(); // <- must be here or the circuit will not work
         } else {
             valveSwitch.setOff();
+            redLed.setOff(); // <- must be here or the circuit will not work
         }
     } else {
         valveSwitch.setOff();
-        alarmLed.setOn();
+//        redLed.setOn(); // <- should have been here, but circuit will not work
         alarmBuzzer.setOn();
         alarmBuzzer.loop();
     }
