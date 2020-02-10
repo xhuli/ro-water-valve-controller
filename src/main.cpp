@@ -16,7 +16,7 @@
  *                  +----+
  * \endcode
  */
-namespace McuPins {
+namespace ArduinoPins {
     const uint8_t Reset = 5;                // PB5 / PCINT5 / ^RESET / ADC0 / dW
     const uint8_t ValveSwitch = 3;          // PB3 / PCINT3 / XTAL1 / CLKI / ^OC1B / ADC3
     const uint8_t AlarmLed = 4;             // PB4 / PCINT4 / XTAL2 / CLKO /  OC1B / ADC2
@@ -27,18 +27,18 @@ namespace McuPins {
 
 class Switchable {
 private:
-    const uint8_t mcuPin;
+    const uint8_t arduinoPin;
     const uint32_t delayMs;
     bool isOn = false;
 public:
-    explicit Switchable(const uint8_t mcuPin) : mcuPin(mcuPin), delayMs(0) {
-        pinMode(Switchable::mcuPin, OUTPUT);
-        digitalWrite(Switchable::mcuPin, LOW);
+    explicit Switchable(const uint8_t arduinoPin) : arduinoPin(arduinoPin), delayMs(0) {
+        pinMode(Switchable::arduinoPin, OUTPUT);
+        digitalWrite(Switchable::arduinoPin, LOW);
     }
 
-    explicit Switchable(const uint8_t mcuPin, const uint32_t delayMs) : mcuPin(mcuPin), delayMs(delayMs) {
-        pinMode(Switchable::mcuPin, OUTPUT);
-        digitalWrite(Switchable::mcuPin, LOW);
+    explicit Switchable(const uint8_t mcuPin, const uint32_t delayMs) : arduinoPin(mcuPin), delayMs(delayMs) {
+        pinMode(Switchable::arduinoPin, OUTPUT);
+        digitalWrite(Switchable::arduinoPin, LOW);
     }
 
     virtual ~Switchable() = default;
@@ -49,7 +49,7 @@ public:
                 delay(delayMs);
             }
             Switchable::isOn = true;
-            digitalWrite(Switchable::mcuPin, HIGH);
+            digitalWrite(Switchable::arduinoPin, HIGH);
         }
     }
 
@@ -59,7 +59,7 @@ public:
                 delay(delayMs);
             }
             Switchable::isOn = false;
-            digitalWrite(Switchable::mcuPin, LOW);
+            digitalWrite(Switchable::arduinoPin, LOW);
         }
     }
 };
@@ -67,7 +67,7 @@ public:
 template<uint8_t N>
 class Buzzer {
 private:
-    const uint8_t mcuBuzzerPin;
+    const uint8_t arduinoPin;
     const uint32_t (&intervalDurations)[N];
 
     uint8_t currentIntervalIndex = 0;
@@ -76,12 +76,12 @@ private:
     bool isBuzzing = false;
 
 public:
-    explicit Buzzer(const uint8_t mcuBuzzerPin, const uint32_t (&intervalDurations)[N]) :
-            mcuBuzzerPin(mcuBuzzerPin),
+    explicit Buzzer(const uint8_t arduinoPin, const uint32_t (&intervalDurations)[N]) :
+            arduinoPin(arduinoPin),
             intervalDurations(intervalDurations) {
 
-        pinMode(Buzzer::mcuBuzzerPin, OUTPUT);
-        digitalWrite(Buzzer::mcuBuzzerPin, LOW);
+        pinMode(Buzzer::arduinoPin, OUTPUT);
+        digitalWrite(Buzzer::arduinoPin, LOW);
     }
 
     virtual ~Buzzer() = default;
@@ -91,21 +91,21 @@ public:
             Buzzer::isBuzzing = true;
             Buzzer::currentIntervalIndex = 0;
             Buzzer::currentIntervalStartMs = millis();
-            digitalWrite(Buzzer::mcuBuzzerPin, HIGH);
+            digitalWrite(Buzzer::arduinoPin, HIGH);
         }
     }
 
     void setOff() {
         if (Buzzer::isBuzzing) {
             Buzzer::isBuzzing = false;
-            digitalWrite(Buzzer::mcuBuzzerPin, LOW); // immediately stop buzzing
+            digitalWrite(Buzzer::arduinoPin, LOW); // immediately stop buzzing
         }
     }
 
     void loop() {
         if (Buzzer::isBuzzing) {
             if (millis() - Buzzer::currentIntervalStartMs >= Buzzer::intervalDurations[Buzzer::currentIntervalIndex]) {
-                digitalWrite(Buzzer::mcuBuzzerPin, !digitalRead(Buzzer::mcuBuzzerPin));
+                digitalWrite(Buzzer::arduinoPin, !digitalRead(Buzzer::arduinoPin));
                 Buzzer::currentIntervalIndex = (Buzzer::currentIntervalIndex + 1) % N;
                 Buzzer::currentIntervalStartMs = millis();
             }
@@ -114,26 +114,26 @@ public:
 };
 
 const uint32_t valveDelayMs = 3 * 60 * 1000; // minutes * seconds * milliseconds
-Switchable valveSwitch = Switchable(McuPins::ValveSwitch, valveDelayMs);
+Switchable valveSwitch = Switchable(ArduinoPins::ValveSwitch, valveDelayMs);
 
 /* todo: investigate why the led cannot be used for alarm signalling, it breaks the whole logic */
-Switchable redLed = Switchable(McuPins::AlarmLed); // this should have been an alarm led but the code does not work when it's used as one :(
+Switchable redLed = Switchable(ArduinoPins::AlarmLed); // this should have been an alarm led but the code does not work when it's used as one :(
 
 const uint8_t buzzIntervals = 6;
 const uint32_t buzzIntervalDurations[buzzIntervals] = {600, 400, 600, 400, 1200, 4000}; // beep, pause, beep, pause, ...
-Buzzer<buzzIntervals> alarmBuzzer = Buzzer<buzzIntervals>(McuPins::AlarmBuzzer, buzzIntervalDurations);
+Buzzer<buzzIntervals> alarmBuzzer = Buzzer<buzzIntervals>(ArduinoPins::AlarmBuzzer, buzzIntervalDurations);
 
 void setup() {
-    pinMode(McuPins::NormalLevelSensor, INPUT_PULLUP);
-    pinMode(McuPins::HighLevelSensor, INPUT_PULLUP);
+    pinMode(ArduinoPins::NormalLevelSensor, INPUT_PULLUP);
+    pinMode(ArduinoPins::HighLevelSensor, INPUT_PULLUP);
 }
 
 void loop() {
-    if (digitalRead(McuPins::HighLevelSensor) == LOW) {
+    if (digitalRead(ArduinoPins::HighLevelSensor) == LOW) {
         redLed.setOff();
         alarmBuzzer.setOff();
 
-        if (digitalRead(McuPins::NormalLevelSensor) == LOW) {
+        if (digitalRead(ArduinoPins::NormalLevelSensor) == LOW) {
             valveSwitch.setOn();
             redLed.setOn(); // <- must be here or the circuit will not work
         } else {
