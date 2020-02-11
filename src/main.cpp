@@ -16,7 +16,7 @@
  *                  +----+
  * \endcode
  */
-namespace ArduinoPins {
+namespace Pins {
     const uint8_t Reset = 5;                // PB5 / PCINT5 / ^RESET / ADC0 / dW
     const uint8_t ValveSwitch = 3;          // PB3 / PCINT3 / XTAL1 / CLKI / ^OC1B / ADC3
     const uint8_t AlarmLed = 4;             // PB4 / PCINT4 / XTAL2 / CLKO /  OC1B / ADC2
@@ -27,39 +27,39 @@ namespace ArduinoPins {
 
 class Switchable {
 private:
-    const uint8_t arduinoPin;
+    const uint8_t pin;
     const uint32_t delayMs;
     bool isOn = false;
 public:
-    explicit Switchable(const uint8_t arduinoPin) : arduinoPin(arduinoPin), delayMs(0) {
-        pinMode(Switchable::arduinoPin, OUTPUT);
-        digitalWrite(Switchable::arduinoPin, LOW);
+    explicit Switchable(const uint8_t pin) : pin(pin), delayMs(0) {
+        pinMode(Switchable::pin, OUTPUT);
+        digitalWrite(Switchable::pin, LOW);
     }
 
-    explicit Switchable(const uint8_t mcuPin, const uint32_t delayMs) : arduinoPin(mcuPin), delayMs(delayMs) {
-        pinMode(Switchable::arduinoPin, OUTPUT);
-        digitalWrite(Switchable::arduinoPin, LOW);
+    explicit Switchable(const uint8_t pin, const uint32_t delayMs) : pin(pin), delayMs(delayMs) {
+        pinMode(Switchable::pin, OUTPUT);
+        digitalWrite(Switchable::pin, LOW);
     }
 
     virtual ~Switchable() = default;
 
     void setOn() {
         if (!(Switchable::isOn)) {
-            if (delayMs > 0) {
-                delay(delayMs);
+            if (Switchable::delayMs > 0) {
+                delay(Switchable::delayMs);
             }
             Switchable::isOn = true;
-            digitalWrite(Switchable::arduinoPin, HIGH);
+            digitalWrite(Switchable::pin, HIGH);
         }
     }
 
     void setOff() {
         if (Switchable::isOn) {
-            if (delayMs > 0) {
-                delay(delayMs);
+            if (Switchable::delayMs > 0) {
+                delay(Switchable::delayMs);
             }
             Switchable::isOn = false;
-            digitalWrite(Switchable::arduinoPin, LOW);
+            digitalWrite(Switchable::pin, LOW);
         }
     }
 };
@@ -67,7 +67,7 @@ public:
 template<uint8_t N>
 class Buzzer {
 private:
-    const uint8_t arduinoPin;
+    const uint8_t pin;
     const uint32_t (&intervalDurations)[N];
 
     uint8_t currentIntervalIndex = 0;
@@ -76,12 +76,12 @@ private:
     bool isBuzzing = false;
 
 public:
-    explicit Buzzer(const uint8_t arduinoPin, const uint32_t (&intervalDurations)[N]) :
-            arduinoPin(arduinoPin),
+    explicit Buzzer(const uint8_t pin, const uint32_t (&intervalDurations)[N]) :
+            pin(pin),
             intervalDurations(intervalDurations) {
 
-        pinMode(Buzzer::arduinoPin, OUTPUT);
-        digitalWrite(Buzzer::arduinoPin, LOW);
+        pinMode(Buzzer::pin, OUTPUT);
+        digitalWrite(Buzzer::pin, LOW);
     }
 
     virtual ~Buzzer() = default;
@@ -91,21 +91,21 @@ public:
             Buzzer::isBuzzing = true;
             Buzzer::currentIntervalIndex = 0;
             Buzzer::currentIntervalStartMs = millis();
-            digitalWrite(Buzzer::arduinoPin, HIGH);
+            digitalWrite(Buzzer::pin, HIGH);
         }
     }
 
     void setOff() {
         if (Buzzer::isBuzzing) {
             Buzzer::isBuzzing = false;
-            digitalWrite(Buzzer::arduinoPin, LOW); // immediately stop buzzing
+            digitalWrite(Buzzer::pin, LOW); // immediately stop buzzing
         }
     }
 
     void loop() {
         if (Buzzer::isBuzzing) {
             if (millis() - Buzzer::currentIntervalStartMs >= Buzzer::intervalDurations[Buzzer::currentIntervalIndex]) {
-                digitalWrite(Buzzer::arduinoPin, !digitalRead(Buzzer::arduinoPin));
+                digitalWrite(Buzzer::pin, !digitalRead(Buzzer::pin));
                 Buzzer::currentIntervalIndex = (Buzzer::currentIntervalIndex + 1) % N;
                 Buzzer::currentIntervalStartMs = millis();
             }
@@ -114,26 +114,35 @@ public:
 };
 
 const uint32_t valveDelayMs = 3 * 60 * 1000; // minutes * seconds * milliseconds
-Switchable valveSwitch = Switchable(ArduinoPins::ValveSwitch, valveDelayMs);
+Switchable valveSwitch = Switchable(Pins::ValveSwitch, valveDelayMs);
 
 /* todo: investigate why the led cannot be used for alarm signalling, it breaks the whole logic */
-Switchable redLed = Switchable(ArduinoPins::AlarmLed); // this should have been an alarm led but the code does not work when it's used as one :(
+Switchable redLed = Switchable(Pins::AlarmLed); // this should have been an alarm led but the code does not work when it's used as one :(
 
 const uint8_t buzzIntervals = 6;
 const uint32_t buzzIntervalDurations[buzzIntervals] = {600, 400, 600, 400, 1200, 4000}; // beep, pause, beep, pause, ...
-Buzzer<buzzIntervals> alarmBuzzer = Buzzer<buzzIntervals>(ArduinoPins::AlarmBuzzer, buzzIntervalDurations);
+Buzzer<buzzIntervals> alarmBuzzer = Buzzer<buzzIntervals>(Pins::AlarmBuzzer, buzzIntervalDurations);
 
 void setup() {
-    pinMode(ArduinoPins::NormalLevelSensor, INPUT_PULLUP);
-    pinMode(ArduinoPins::HighLevelSensor, INPUT_PULLUP);
+    pinMode(Pins::AlarmBuzzer, OUTPUT);
+    delay(16);
+
+    pinMode(Pins::AlarmLed, OUTPUT);
+    delay(16);
+
+    pinMode(Pins::NormalLevelSensor, INPUT_PULLUP);
+    delay(16);
+
+    pinMode(Pins::HighLevelSensor, INPUT_PULLUP);
+    delay(16);
 }
 
 void loop() {
-    if (digitalRead(ArduinoPins::HighLevelSensor) == LOW) {
+    if (digitalRead(Pins::HighLevelSensor) == LOW) {
         redLed.setOff();
         alarmBuzzer.setOff();
 
-        if (digitalRead(ArduinoPins::NormalLevelSensor) == LOW) {
+        if (digitalRead(Pins::NormalLevelSensor) == LOW) {
             valveSwitch.setOn();
             redLed.setOn(); // <- must be here or the circuit will not work
         } else {
@@ -142,7 +151,7 @@ void loop() {
         }
     } else {
         valveSwitch.setOff();
-//        redLed.setOn(); // <- should have been here, but circuit will not work
+        // redLed.setOn(); // <- should have been here, but circuit will not work
         alarmBuzzer.setOn();
         alarmBuzzer.loop();
     }
