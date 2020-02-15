@@ -6,7 +6,7 @@
 
 /**
  * <a href="http://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-2586-AVR-8-bit-Microcontroller-ATtiny25-ATtiny45-ATtiny85_Datasheet.pdf">Atmel ATtiny 25/45/85</a>
- * <p>Pin 1 is /RESET</p>
+ * <p>Dip pin 1 is RESET</p>
  * \code
  *                  +-\/-+
  * Ain0 (D 5) PB5  1|    |8  Vcc
@@ -25,45 +25,6 @@ namespace Pins {
     const uint8_t NormalLevelSensor = 2;    // PB2 / SCK / USCK / SCL / ADC1 / T0 / INT0 / PCINT2
 }
 
-class Switchable {
-private:
-    const uint8_t pin;
-    const uint32_t delayMs;
-    bool isOn = false;
-public:
-    explicit Switchable(const uint8_t pin) : pin(pin), delayMs(0) {
-        pinMode(Switchable::pin, OUTPUT);
-        digitalWrite(Switchable::pin, LOW);
-    }
-
-    explicit Switchable(const uint8_t pin, const uint32_t delayMs) : pin(pin), delayMs(delayMs) {
-        pinMode(Switchable::pin, OUTPUT);
-        digitalWrite(Switchable::pin, LOW);
-    }
-
-    virtual ~Switchable() = default;
-
-    void setOn() {
-        if (!(Switchable::isOn)) {
-            if (Switchable::delayMs > 0) {
-                delay(Switchable::delayMs);
-            }
-            Switchable::isOn = true;
-            digitalWrite(Switchable::pin, HIGH);
-        }
-    }
-
-    void setOff() {
-        if (Switchable::isOn) {
-            if (Switchable::delayMs > 0) {
-                delay(Switchable::delayMs);
-            }
-            Switchable::isOn = false;
-            digitalWrite(Switchable::pin, LOW);
-        }
-    }
-};
-
 template<uint8_t N>
 class Buzzer {
 private:
@@ -78,11 +39,7 @@ private:
 public:
     explicit Buzzer(const uint8_t pin, const uint32_t (&intervalDurations)[N]) :
             pin(pin),
-            intervalDurations(intervalDurations) {
-
-        pinMode(Buzzer::pin, OUTPUT);
-        digitalWrite(Buzzer::pin, LOW);
-    }
+            intervalDurations(intervalDurations) {}
 
     virtual ~Buzzer() = default;
 
@@ -102,6 +59,10 @@ public:
         }
     }
 
+    void setup() {
+        pinMode(Buzzer::pin, OUTPUT);
+    }
+
     void loop() {
         if (Buzzer::isBuzzing) {
             if (millis() - Buzzer::currentIntervalStartMs >= Buzzer::intervalDurations[Buzzer::currentIntervalIndex]) {
@@ -112,12 +73,6 @@ public:
         }
     }
 };
-
-const uint32_t valveDelayMs = 3 * 60 * 1000; // minutes * seconds * milliseconds
-Switchable valveSwitch = Switchable(Pins::ValveSwitch, valveDelayMs);
-
-/* todo: investigate why the led cannot be used for alarm signalling, it breaks the whole logic */
-Switchable redLed = Switchable(Pins::AlarmLed); // this should have been an alarm led but the code does not work when it's used as one :(
 
 const uint8_t buzzIntervals = 6;
 const uint32_t buzzIntervalDurations[buzzIntervals] = {600, 400, 600, 400, 1200, 4000}; // beep, pause, beep, pause, ...
@@ -130,28 +85,30 @@ void setup() {
     pinMode(Pins::AlarmLed, OUTPUT);
     delay(16);
 
+    pinMode(Pins::ValveSwitch, OUTPUT);
+    delay(16);
+
     pinMode(Pins::NormalLevelSensor, INPUT_PULLUP);
     delay(16);
 
     pinMode(Pins::HighLevelSensor, INPUT_PULLUP);
-    delay(16);
+
+    delay(32);
 }
 
 void loop() {
     if (digitalRead(Pins::HighLevelSensor) == LOW) {
-        redLed.setOff();
+        digitalWrite(Pins::AlarmLed, LOW);
         alarmBuzzer.setOff();
 
         if (digitalRead(Pins::NormalLevelSensor) == LOW) {
-            valveSwitch.setOn();
-            redLed.setOn(); // <- must be here or the circuit will not work
+            digitalWrite(Pins::ValveSwitch, HIGH);
         } else {
-            valveSwitch.setOff();
-            redLed.setOff(); // <- must be here or the circuit will not work
+            digitalWrite(Pins::ValveSwitch, LOW);
         }
     } else {
-        valveSwitch.setOff();
-        // redLed.setOn(); // <- should have been here, but circuit will not work
+        digitalWrite(Pins::ValveSwitch, LOW);
+        digitalWrite(Pins::AlarmLed, HIGH);
         alarmBuzzer.setOn();
         alarmBuzzer.loop();
     }
