@@ -14,8 +14,8 @@ This is an ATtiny85 electric valve controller for RO Water System.
     * IR - infra red [`(FS-IR02)`](https://www.google.com/search?q=FS-IR02)
     * contact less [`(XKC.Y25.NPN)`](https://www.google.com/search?q=XKC.Y25.NPN)
 * two types of output
-    * 12V on/off for low voltage valve types
-    * 220V (live and neutral) on/off for high voltage valve types
+    * 12V on/off for low voltage valve
+    * 220V (live and neutral) on/off for high voltage valve
 * alarm when the backup sensor is sensing liquid
     * alarm LED
     * alarm buzzer
