@@ -61,6 +61,7 @@ public:
 
     void setup() {
         pinMode(Buzzer::pin, OUTPUT);
+        delay(16);
     }
 
     void loop() {
@@ -74,13 +75,12 @@ public:
     }
 };
 
-const uint8_t buzzIntervals = 6;
-const uint32_t buzzIntervalDurations[buzzIntervals] = {600, 400, 600, 400, 1200, 4000}; // beep, pause, beep, pause, ...
-Buzzer<buzzIntervals> alarmBuzzer = Buzzer<buzzIntervals>(Pins::AlarmBuzzer, buzzIntervalDurations);
+const uint8_t BUZZ_INTERVALS = 6;
+const uint32_t buzzIntervalDurations[BUZZ_INTERVALS] = {600, 400, 600, 400, 1200, 4000}; // beep, pause, beep, pause, ...
+Buzzer<BUZZ_INTERVALS> alarmBuzzer = Buzzer<BUZZ_INTERVALS>(Pins::AlarmBuzzer, buzzIntervalDurations);
 
 void setup() {
-    pinMode(Pins::AlarmBuzzer, OUTPUT);
-    delay(16);
+    alarmBuzzer.setup();
 
     pinMode(Pins::AlarmLed, OUTPUT);
     delay(16);
