@@ -3,7 +3,10 @@
  * https://makbit.com/web/firmware/breathing-life-into-digispark-clone-with-attiny-mcu/
  */
 #include <Arduino.h>
-
+#include "AlarmLed.h"
+#include "Buzzer.h"
+#include "Sensor.h"
+#include "Valve.h"
 /**
  * <a href="http://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-2586-AVR-8-bit-Microcontroller-ATtiny25-ATtiny45-ATtiny85_Datasheet.pdf">Atmel ATtiny 25/45/85</a>
  * <p>Dip pin 1 is RESET</p>
@@ -25,91 +28,41 @@ namespace Pins {
     const uint8_t NormalLevelSensor = 2;    // PB2 / SCK / USCK / SCL / ADC1 / T0 / INT0 / PCINT2
 }
 
-template<uint8_t N>
-class Buzzer {
-private:
-    const uint8_t pin;
-    const uint32_t (&intervalDurations)[N];
-
-    uint8_t currentIntervalIndex = 0;
-    uint32_t currentIntervalStartMs = 0;
-
-    bool isBuzzing = false;
-
-public:
-    explicit Buzzer(const uint8_t pin, const uint32_t (&intervalDurations)[N]) :
-            pin(pin),
-            intervalDurations(intervalDurations) {}
-
-    virtual ~Buzzer() = default;
-
-    void setOn() {
-        if (!(Buzzer::isBuzzing) && (N > 0)) {
-            Buzzer::isBuzzing = true;
-            Buzzer::currentIntervalIndex = 0;
-            Buzzer::currentIntervalStartMs = millis();
-            digitalWrite(Buzzer::pin, HIGH);
-        }
-    }
-
-    void setOff() {
-        if (Buzzer::isBuzzing) {
-            Buzzer::isBuzzing = false;
-            digitalWrite(Buzzer::pin, LOW); // immediately stop buzzing
-        }
-    }
-
-    void setup() {
-        pinMode(Buzzer::pin, OUTPUT);
-        delay(16);
-    }
-
-    void loop() {
-        if (Buzzer::isBuzzing) {
-            if (millis() - Buzzer::currentIntervalStartMs >= Buzzer::intervalDurations[Buzzer::currentIntervalIndex]) {
-                digitalWrite(Buzzer::pin, !digitalRead(Buzzer::pin));
-                Buzzer::currentIntervalIndex = (Buzzer::currentIntervalIndex + 1) % N;
-                Buzzer::currentIntervalStartMs = millis();
-            }
-        }
-    }
-};
-
 const uint8_t BUZZ_INTERVALS = 6;
-const uint32_t buzzIntervalDurations[BUZZ_INTERVALS] = {600, 400, 600, 400, 1200, 4000}; // beep, pause, beep, pause, ...
+const uint32_t buzzIntervalDurations[BUZZ_INTERVALS] = {600, 400, 600, 400, 1200, 4000}; /* beep, pause, beep... */
 Buzzer<BUZZ_INTERVALS> alarmBuzzer = Buzzer<BUZZ_INTERVALS>(Pins::AlarmBuzzer, buzzIntervalDurations);
+
+AlarmLed alarmLed = AlarmLed(Pins::AlarmLed);
+
+Sensor normalLevelSensor = Sensor(Pins::NormalLevelSensor);
+Sensor highLevelSensor = Sensor(Pins::HighLevelSensor);
+
+const uint32_t VALVE_DELAY_MS = 1 * 60 * 1000; /* minutes x seconds x milliseconds */
+Valve valve = Valve(Pins::ValveSwitch, VALVE_DELAY_MS);
 
 void setup() {
     alarmBuzzer.setup();
-
-    pinMode(Pins::AlarmLed, OUTPUT);
-    delay(16);
-
-    pinMode(Pins::ValveSwitch, OUTPUT);
-    delay(16);
-
-    pinMode(Pins::NormalLevelSensor, INPUT_PULLUP);
-    delay(16);
-
-    pinMode(Pins::HighLevelSensor, INPUT_PULLUP);
+    alarmLed.setup();
+    normalLevelSensor.setup();
+    highLevelSensor.setup();
+    valve.setup();
 
     delay(32);
 }
 
 void loop() {
-    if (digitalRead(Pins::HighLevelSensor) == LOW) {
-        digitalWrite(Pins::AlarmLed, LOW);
-        alarmBuzzer.setOff();
+    if (highLevelSensor.isNotSensingWater()) {
+        alarmLed.turnOff();
+        alarmBuzzer.stopBuzzing();
 
-        if (digitalRead(Pins::NormalLevelSensor) == LOW) {
-            digitalWrite(Pins::ValveSwitch, HIGH);
+        if (normalLevelSensor.isNotSensingWater()) {
+            valve.openValve();
         } else {
-            digitalWrite(Pins::ValveSwitch, LOW);
+            valve.closeValve();
         }
     } else {
-        digitalWrite(Pins::ValveSwitch, LOW);
-        digitalWrite(Pins::AlarmLed, HIGH);
-        alarmBuzzer.setOn();
-        alarmBuzzer.loop();
+        valve.closeValve();
+        alarmLed.turnOn();
+        alarmBuzzer.startBuzzing();
     }
 }

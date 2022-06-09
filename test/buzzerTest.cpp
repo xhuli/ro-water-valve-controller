@@ -17,7 +17,7 @@ public:
 
     virtual ~Buzzer() = default;
 
-    void setOn() {
+    void startBuzzing() {
         if (!(Buzzer::isBuzzing) && (N > 0)) {
             Buzzer::isBuzzing = true;
             Buzzer::currentIntervalIndex = 0;
@@ -27,7 +27,7 @@ public:
         }
     }
 
-    void setOff() {
+    void stopBuzzing() {
         if (Buzzer::isBuzzing) {
             Buzzer::isBuzzing = false;
 
@@ -54,7 +54,7 @@ int main() {
     constexpr uint32_t buzzIntervals[6] = {700, 400, 700, 400, 1400, 4000};
     Buzzer<(sizeof(buzzIntervals) / sizeof(*buzzIntervals))> alarmBuzzer{buzzIntervals};
 
-    alarmBuzzer.setOn();
+    alarmBuzzer.startBuzzing();
 
     uint32_t startMillis = millis();
 
@@ -64,7 +64,7 @@ int main() {
         timeKeeper.loop();
     }
 
-    alarmBuzzer.setOff();
+    alarmBuzzer.stopBuzzing();
 
     return 0;
 }

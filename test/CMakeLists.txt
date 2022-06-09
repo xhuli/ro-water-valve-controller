@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_BUILD_TYPE Debug)
+SET(CMAKE_C_COMPILER "/usr/bin/cc")
+SET(CMAKE_CXX_COMPILER "/usr/bin/c++")
 
 add_executable(BuzzerTest buzzerTest.cpp)
 add_test(NAME BuzzerTest COMMAND BuzzerTest)
