@@ -72,6 +72,11 @@ SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 include_directories("${AVR_FRAMEWORK_DIR}/cores/dtiny")
 include_directories("${AVR_FRAMEWORK_DIR}/variants/digispark")
 
+# This project's own headers (Buzzer.h, Switchable.h, SwitchableWithDelay.h,
+# WaterLevelSensor.h). PlatformIO adds include/ to its build path
+# automatically with no config needed; CMake needs it spelled out.
+include_directories("${CMAKE_SOURCE_DIR}/include")
+
 # Header include paths alone aren't enough to link: millis()/pinMode()/etc.
 # are only declared in the headers above, defined in these core sources.
 # PlatformIO compiles this same set (verified via `pio run -e usbasp -v`)
@@ -94,7 +99,7 @@ add_library(FrameworkArduino STATIC ${AVR_CORE_SOURCES})
 # are fixed for this entire configure once project() runs, so it can't share
 # a configure with the AVR-cross-compiled target. Build it as its own
 # standalone project instead:
-#   cmake -S test -B test/build && cmake --build test/build && ctest --test-dir test/build
+#   cmake -S test -B test/cmake-build-debug && cmake --build test/cmake-build-debug && ctest --test-dir test/cmake-build-debug
 
 add_executable(RodiController src/main/main.cpp)
 target_link_libraries(RodiController PRIVATE FrameworkArduino m)

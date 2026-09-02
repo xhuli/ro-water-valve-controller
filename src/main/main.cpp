@@ -4,157 +4,12 @@
  * https://makbit.com/web/firmware/breathing-life-into-digispark-clone-with-attiny-mcu/
  */
 #include <Arduino.h>
+#include <avr/wdt.h>
 
-/* Classes - Start */
-template<uint8_t N>
-class Buzzer {
-private:
-    const uint8_t pin;
-    const uint32_t (&intervalDurations)[N];
-
-    uint8_t currentIntervalIndex = 0;
-    uint32_t currentIntervalStartMs = 0;
-
-    bool isBuzzing = false;
-
-public:
-    explicit Buzzer(const uint8_t pin, const uint32_t (&intervalDurations)[N]) :
-            pin(pin),
-            intervalDurations(intervalDurations) {}
-
-    virtual ~Buzzer() = default;
-
-    void setup() {
-        pinMode(Buzzer::pin, OUTPUT);
-        delay(16);
-    }
-
-    void startBuzzing() {
-        if (!(Buzzer::isBuzzing) && (N > 0)) {
-            Buzzer::isBuzzing = true;
-            Buzzer::currentIntervalIndex = 0;
-            Buzzer::currentIntervalStartMs = millis();
-            digitalWrite(Buzzer::pin, HIGH);
-        }
-
-        if (Buzzer::isBuzzing) {
-            if (millis() - Buzzer::currentIntervalStartMs >= Buzzer::intervalDurations[Buzzer::currentIntervalIndex]) {
-                digitalWrite(Buzzer::pin, !digitalRead(Buzzer::pin));
-                Buzzer::currentIntervalIndex = (Buzzer::currentIntervalIndex + 1) % N;
-                Buzzer::currentIntervalStartMs = millis();
-            }
-        }
-    }
-
-    void stopBuzzing() {
-        if (Buzzer::isBuzzing) {
-            Buzzer::isBuzzing = false;
-            digitalWrite(Buzzer::pin, LOW); /* immediately stop buzzing */
-        }
-    }
-};
-
-class Switchable {
-private:
-    const uint8_t pin;
-
-    bool isOn = false;
-
-public:
-    explicit Switchable(const uint8_t pin) : pin(pin) {}
-
-    virtual ~Switchable() = default;
-
-    void setup() {
-        pinMode(Switchable::pin, OUTPUT);
-        delay(16);
-    }
-
-    virtual void switchOn() {
-        if (!Switchable::isOn) {
-            digitalWrite(Switchable::pin, HIGH);
-            Switchable::isOn = true;
-        }
-    }
-
-    virtual void switchOff() {
-        if (Switchable::isOn) {
-            digitalWrite(Switchable::pin, LOW);
-            Switchable::isOn = false;
-        }
-    }
-};
-
-class SwitchableWithDelay {
-private:
-    const uint8_t pin;
-    const uint32_t delayMs;
-
-    bool isOn = false;
-    uint32_t lastStateChangeMs = 0ul;
-
-public:
-    explicit SwitchableWithDelay(const uint8_t pin, const uint32_t delayMs) : pin(pin), delayMs(delayMs) {}
-
-    virtual ~SwitchableWithDelay() = default;
-
-    void setup() {
-        pinMode(SwitchableWithDelay::pin, OUTPUT);
-        delay(16);
-    }
-
-    void switchOnNow() {
-        digitalWrite(SwitchableWithDelay::pin, HIGH);
-        isOn = true;
-        lastStateChangeMs = millis();
-    }
-
-    void switchOffNow() {
-        digitalWrite(SwitchableWithDelay::pin, LOW);
-        isOn = false;
-        lastStateChangeMs = millis();
-    }
-
-    void switchOn() {
-        if (!isOn) {
-            if (lastStateChangeMs == 0ul || millis() - lastStateChangeMs >= delayMs) {
-                switchOnNow();
-            }
-        }
-    }
-
-    void switchOff() {
-        if (isOn) {
-            if (lastStateChangeMs == 0ul || millis() - lastStateChangeMs >= delayMs) {
-                switchOffNow();
-            }
-        }
-    }
-};
-
-class WaterLevelSensor {
-private:
-    const uint8_t pin;
-
-public:
-    explicit WaterLevelSensor(const uint8_t pin) : pin(pin) {}
-
-    virtual ~WaterLevelSensor() = default;
-
-    void setup() {
-        pinMode(WaterLevelSensor::pin, INPUT_PULLUP);
-        delay(16);
-    }
-
-    bool isSensingWater() {
-        return digitalRead(WaterLevelSensor::pin) == HIGH;
-    }
-
-    bool isNotSensingWater() {
-        return digitalRead(WaterLevelSensor::pin) == LOW;
-    }
-};
-/* Classes - End */
+#include "Buzzer.h"
+#include "Switchable.h"
+#include "SwitchableWithDelay.h"
+#include "WaterLevelSensor.h"
 
 /**
  * <a href="http://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-2586-AVR-8-bit-Microcontroller-ATtiny25-ATtiny45-ATtiny85_Datasheet.pdf">Atmel ATtiny 25/45/85</a>
@@ -167,13 +22,14 @@ public:
  *                  +----+
  * \endcode
  */
-namespace Pins {
-    const uint8_t Reset = 5;                // PB5 / PCINT5 / ^RESET / ADC0 / dW
-    const uint8_t ValveSwitch = 3;          // PB3 / PCINT3 / XTAL1 / CLKI / ^OC1B / ADC3
-    const uint8_t AlarmLed = 4;             // PB4 / PCINT4 / XTAL2 / CLKO /  OC1B / ADC2
-    const uint8_t AlarmBuzzer = 0;          // PB0 / MOSI / DI / SDA / AIN0 / OC0A / ^OC1A / AREF / PCINT0
-    const uint8_t HighLevelSensor = 1;      // PB1 / MISO / DO / AIN1 / OC0B / OC1A / PCINT1
-    const uint8_t NormalLevelSensor = 2;    // PB2 / SCK / USCK / SCL / ADC1 / T0 / INT0 / PCINT2
+namespace Pins
+{
+    const uint8_t Reset = 5;             // PB5 / PCINT5 / ^RESET / ADC0 / dW
+    const uint8_t ValveSwitch = 3;       // PB3 / PCINT3 / XTAL1 / CLKI / ^OC1B / ADC3
+    const uint8_t AlarmLed = 4;          // PB4 / PCINT4 / XTAL2 / CLKO /  OC1B / ADC2
+    const uint8_t AlarmBuzzer = 0;       // PB0 / MOSI / DI / SDA / AIN0 / OC0A / ^OC1A / AREF / PCINT0
+    const uint8_t HighLevelSensor = 1;   // PB1 / MISO / DO / AIN1 / OC0B / OC1A / PCINT1
+    const uint8_t NormalLevelSensor = 2; // PB2 / SCK / USCK / SCL / ADC1 / T0 / INT0 / PCINT2
 }
 
 const uint8_t BUZZ_INTERVALS = 6;
@@ -188,7 +44,10 @@ WaterLevelSensor highLevelSensor = WaterLevelSensor(Pins::HighLevelSensor);
 const uint32_t VALVE_DELAY_MS = 16 * 1000ul; /* seconds * milliseconds */
 SwitchableWithDelay valve = SwitchableWithDelay(Pins::ValveSwitch, VALVE_DELAY_MS);
 
-void setup() {
+void setup()
+{
+    wdt_disable(); /* clear any watchdog state left over from a prior reset/bootloader before (re)arming it below */
+
     alarmBuzzer.setup();
     alarmLed.setup();
     normalLevelSensor.setup();
@@ -196,19 +55,36 @@ void setup() {
     valve.setup();
 
     delay(32);
+
+    /* loop() has no blocking calls and runs continuously, so a hang here is
+     * a firmware bug/lockup, not normal operation. 2 seconds gives ample
+     * margin above one iteration while still recovering promptly; matches
+     * the convention used by the sibling AquariumATO project. Without this,
+     * a hang could leave the valve stuck in whatever state it was last
+     * driven to, including ON. */
+    wdt_enable(WDTO_2S);
 }
 
-void loop() {
-    if (highLevelSensor.isNotSensingWater()) {
+void loop()
+{
+    wdt_reset();
+
+    if (highLevelSensor.isNotSensingWater())
+    {
         alarmLed.switchOff();
         alarmBuzzer.stopBuzzing();
 
-        if (normalLevelSensor.isNotSensingWater()) {
+        if (normalLevelSensor.isNotSensingWater())
+        {
             valve.switchOn();
-        } else {
+        }
+        else
+        {
             valve.switchOff();
         }
-    } else {
+    }
+    else
+    {
         valve.switchOffNow();
         alarmLed.switchOn();
         alarmBuzzer.startBuzzing();
