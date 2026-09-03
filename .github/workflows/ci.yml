@@ -11,7 +11,7 @@ jobs:
     name: Host-side regression tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Configure
         run: cmake -S test -B test/cmake-build-ci
@@ -26,9 +26,9 @@ jobs:
     name: PlatformIO firmware build (ATtiny85)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
 
