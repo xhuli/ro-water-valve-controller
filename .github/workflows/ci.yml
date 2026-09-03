@@ -1,4 +1,4 @@
-name: CI
+name: Build & Test
 
 on:
   push:
@@ -36,4 +36,33 @@ jobs:
         run: pip install -U platformio
 
       - name: Build firmware
-        run: pio run -e usbasp
+        run: pio run -e usbasp | tee pio-build.log
+
+      # pio run already fails the build outright (nonzero exit) if the
+      # firmware doesn't fit at all - confirmed by deliberately overflowing
+      # flash locally, which failed with a linker "region overflowed" error.
+      # This step is a *softer* signal below that hard ceiling: a
+      # non-blocking warning once usage crosses a threshold, so growth gets
+      # noticed early rather than only when it finally won't fit. Reads
+      # PlatformIO's own printed percentages (which already account for
+      # this board's real maximum_size/maximum_ram_size) instead of
+      # hardcoding 6012/512 again here.
+      - name: Warn if flash/RAM usage is high
+        run: |
+          THRESHOLD=90
+          RAM_LINE=$(grep '^RAM:' pio-build.log)
+          FLASH_LINE=$(grep '^Flash:' pio-build.log)
+          RAM_USED=$(echo "$RAM_LINE" | grep -oP 'used \K[0-9]+')
+          RAM_MAX=$(echo "$RAM_LINE" | grep -oP 'from \K[0-9]+')
+          FLASH_USED=$(echo "$FLASH_LINE" | grep -oP 'used \K[0-9]+')
+          FLASH_MAX=$(echo "$FLASH_LINE" | grep -oP 'from \K[0-9]+')
+          RAM_PCT=$(( RAM_USED * 100 / RAM_MAX ))
+          FLASH_PCT=$(( FLASH_USED * 100 / FLASH_MAX ))
+          echo "RAM: ${RAM_USED}/${RAM_MAX} bytes (${RAM_PCT}%)"
+          echo "Flash: ${FLASH_USED}/${FLASH_MAX} bytes (${FLASH_PCT}%)"
+          if [ "$RAM_PCT" -ge "$THRESHOLD" ]; then
+            echo "::warning::RAM usage is ${RAM_PCT}% (${RAM_USED}/${RAM_MAX} bytes) - at or above the ${THRESHOLD}% watch threshold"
+          fi
+          if [ "$FLASH_PCT" -ge "$THRESHOLD" ]; then
+            echo "::warning::Flash usage is ${FLASH_PCT}% (${FLASH_USED}/${FLASH_MAX} bytes) - at or above the ${THRESHOLD}% watch threshold"
+          fi
