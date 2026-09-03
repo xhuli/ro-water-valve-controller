@@ -32,8 +32,15 @@ namespace Pins
     const uint8_t NormalLevelSensor = 2; // PB2 / SCK / USCK / SCL / ADC1 / T0 / INT0 / PCINT2
 }
 
-const uint8_t BUZZ_INTERVALS = 6;
-const uint32_t buzzIntervalDurations[BUZZ_INTERVALS] = {700, 400, 700, 400, 1400, 4000}; /* beep, pause, beep... */
+const uint32_t buzzIntervalDurations[] = {700, 400, 700, 400, 1400, 4000}; /* beep, pause, beep... */
+/* Derived from the array itself, not hand-counted: an explicit BUZZ_INTERVALS
+ * constant plus a separately-sized array is a bug waiting to happen (a
+ * static_assert comparing them can't catch it either - the array's size and
+ * the constant would just be the same declaration by construction). Adding
+ * an entry without this would be a hard compile error already (too many
+ * initializers); removing one would silently zero-pad instead - this way
+ * there's nothing to keep in sync. */
+constexpr uint8_t BUZZ_INTERVALS = sizeof(buzzIntervalDurations) / sizeof(buzzIntervalDurations[0]);
 Buzzer<BUZZ_INTERVALS> alarmBuzzer = Buzzer<BUZZ_INTERVALS>(Pins::AlarmBuzzer, buzzIntervalDurations);
 
 Switchable alarmLed = Switchable(Pins::AlarmLed);
