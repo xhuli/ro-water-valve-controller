@@ -2,6 +2,12 @@
 
 [![Build & Test](https://github.com/xhuli/ro-water-valve-controller/actions/workflows/ci.yml/badge.svg)](https://github.com/xhuli/ro-water-valve-controller/actions/workflows/ci.yml)
 
+## Disclaimer
+
+RO Water Controller is a DIY water-fill automation project and is used at your own risk. No automated fill/shutoff system should be considered fail-safe. This device can switch both low-voltage and **mains-voltage (220V)** valve circuitry - verify component ratings, wiring, sensor placement, valve behavior, plumbing, electrical isolation/clearances/grounding, and enclosure protection for your installation, and continue to inspect the device and its wiring regularly.
+
+The project authors and contributors are not responsible for water damage, flood damage, property damage, electrical damage, fire, equipment failure, injury, death, or any other loss or damage of any kind - material, financial, physical, or otherwise - resulting from the construction, modification, installation, configuration, or operation of this device, or from the use or modification of its firmware, schematics, or documentation.
+
 ## Abstract
 
 This is an **ATtiny85-based automatic fill controller** for an RO/DI water reservoir. It monitors two independent water level sensors and controls an electric fill valve, with an LED/buzzer alarm if the backup sensor detects an overfill condition.
