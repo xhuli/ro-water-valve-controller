@@ -1,5 +1,7 @@
 # RO Water Controller
 
+[![Build & Test](https://github.com/xhuli/ro-water-valve-controller/actions/workflows/ci.yml/badge.svg)](https://github.com/xhuli/ro-water-valve-controller/actions/workflows/ci.yml)
+
 ## Abstract
 
 This is an **ATtiny85-based automatic fill controller** for an RO/DI water reservoir. It monitors two independent water level sensors and controls an electric fill valve, with an LED/buzzer alarm if the backup sensor detects an overfill condition.
