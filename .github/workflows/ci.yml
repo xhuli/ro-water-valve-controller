@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  host-tests:
+    name: Host-side regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S test -B test/cmake-build-ci
+
+      - name: Build
+        run: cmake --build test/cmake-build-ci
+
+      - name: Test
+        run: ctest --test-dir test/cmake-build-ci --output-on-failure
+
+  firmware-build:
+    name: PlatformIO firmware build (ATtiny85)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install PlatformIO
+        run: pip install -U platformio
+
+      - name: Build firmware
+        run: pio run -e usbasp
